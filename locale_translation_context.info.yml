@@ -1,0 +1,7 @@
+name: 'Locale Translation Context'
+type: module
+description: 'Add context filtering capabilities to the translation interface.'
+package: Multilingual
+core: 8.x
+dependencies:
+  - drupal:locale
