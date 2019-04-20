@@ -1,0 +1,6 @@
+services:
+  # Event Subscribers
+  locale_translation_context.route_subscriber:
+    class: Drupal\locale_translation_context\EventSubscriber\RouteSubscriber
+    tags:
+      - { name: event_subscriber }
