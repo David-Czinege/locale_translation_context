@@ -1,0 +1,120 @@
+<?php
+
+/**
+ * @file
+ * Contains hooks for the Locale Translation Context module.
+ */
+
+use Drupal\Component\Gettext\PoStreamWriter;
+use Drupal\Core\Database\Database;
+use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Language\LanguageInterface;
+use Drupal\locale_translation_context\PoDatabaseReader;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+
+/**
+ * Implements hook_form_FORM_ID_alter().
+ */
+function locale_translation_context_form_locale_translate_export_form_alter(&$form, FormStateInterface $form_state) {
+
+  $form['context'] = [
+    '#title' => t("Context"),
+    '#type' => 'select',
+    '#options' => locale_translation_context_get_context_options(),
+    '#empty_option' => t('All contexts'),
+  ];
+
+  // Change the form's submit function.
+  $original_submit_function_key = array_search('::submitForm', $form['#submit']);
+  $form['#submit'][$original_submit_function_key] = 'locale_translation_context_export_form_submit';
+}
+
+/**
+ * Get the available context list.
+ *
+ * @return array
+ *   Array of the available contexts.
+ */
+function locale_translation_context_get_context_options() {
+  $context_options = [];
+
+  $connection = Database::getConnection();
+  $data = $connection->select('locales_source', 'ls');
+  $data->fields('ls', ['context']);
+  $data->isNotNull('context');
+  $data->groupBy('context');
+  $data->orderBy('context');
+  $results = $data->execute();
+
+  foreach ($results as $result) {
+    if (!empty($result->context)) {
+      $context_options[$result->context] = $result->context;
+    }
+  }
+
+  return $context_options;
+}
+
+/**
+ * Alters the Drupal\locale\Form\ExportForm submitForm method.
+ *
+ * @param array $form
+ *   Contains the form array.
+ * @param \Drupal\Core\Form\FormStateInterface $form_state
+ *   Form state object.
+ */
+function locale_translation_context_export_form_submit(array &$form, FormStateInterface $form_state) {
+  // If template is required, language code is not given.
+  if ($form_state->getValue('langcode') != LanguageInterface::LANGCODE_SYSTEM) {
+    $language = \Drupal::languageManager()->getLanguage($form_state->getValue('langcode'));
+  }
+  else {
+    $language = NULL;
+  }
+  $content_options = $form_state->getValue('content_options', []);
+  $context = $form_state->getValue('context');
+  $reader = new PoDatabaseReader();
+  $language_name = '';
+  if ($language != NULL) {
+    $reader->setLangcode($language->getId());
+    $reader->setOptions($content_options);
+    $languages = \Drupal::languageManager()->getLanguages();
+    $language_name = isset($languages[$language->getId()]) ? $languages[$language->getId()]->getName() : '';
+    $filename = $language->getId() . '.po';
+  }
+  else {
+    // Template required.
+    $filename = 'drupal.pot';
+  }
+
+  // Set context option.
+  if (!empty($context)) {
+    $options = $reader->getOptions();
+    $options['context'] = $context;
+    $reader->setOptions($options);
+  }
+
+  $item = $reader->readItem();
+  if (!empty($item)) {
+    $uri = \Drupal::service('file_system')->tempnam('temporary://', 'po_');
+    $header = $reader->getHeader();
+    $header->setProjectName(\Drupal::config('system.site')->get('name'));
+    $header->setLanguageName($language_name);
+
+    $writer = new PoStreamWriter();
+    $writer->setURI($uri);
+    $writer->setHeader($header);
+
+    $writer->open();
+    $writer->writeItem($item);
+    $writer->writeItems($reader);
+    $writer->close();
+
+    $response = new BinaryFileResponse($uri);
+    $response->setContentDisposition('attachment', $filename);
+    $form_state->setResponse($response);
+  }
+  else {
+    \Drupal::messenger()->addStatus(t('Nothing to export.'));
+  }
+}

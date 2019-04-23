@@ -34,65 +34,11 @@ class ContextTranslateFilterForm extends TranslateFilterForm {
    * Lists locale translation filters that can be applied.
    */
   protected function translateFilters() {
-    $filters = [];
-
-    // Get all languages, except English.
-    $this->languageManager->reset();
-    $languages = $this->languageManager->getLanguages();
-    $language_options = [];
-    foreach ($languages as $langcode => $language) {
-      if (locale_is_translatable($langcode)) {
-        $language_options[$langcode] = $language->getName();
-      }
-    }
-
-    // Pick the current interface language code for the filter.
-    $default_langcode = $this->languageManager->getCurrentLanguage()->getId();
-    if (!isset($language_options[$default_langcode])) {
-      $available_langcodes = array_keys($language_options);
-      $default_langcode = array_shift($available_langcodes);
-    }
-
-    $filters['string'] = [
-      'title' => $this->t('String contains'),
-      'description' => $this->t('Leave blank to show all strings. The search is case sensitive.'),
-      'default' => '',
-    ];
-
-    $filters['langcode'] = [
-      'title' => $this->t('Translation language'),
-      'options' => $language_options,
-      'default' => $default_langcode,
-    ];
-
-    $filters['translation'] = [
-      'title' => $this->t('Search in'),
-      'options' => [
-        'all' => $this->t('Both translated and untranslated strings'),
-        'translated' => $this->t('Only translated strings'),
-        'untranslated' => $this->t('Only untranslated strings'),
-      ],
-      'default' => 'all',
-    ];
-
-    $filters['customized'] = [
-      'title' => $this->t('Translation type'),
-      'options' => [
-        'all' => $this->t('All'),
-        LOCALE_NOT_CUSTOMIZED => $this->t('Non-customized translation'),
-        LOCALE_CUSTOMIZED => $this->t('Customized translation'),
-      ],
-      'states' => [
-        'visible' => [
-          ':input[name=translation]' => ['value' => 'translated'],
-        ],
-      ],
-      'default' => 'all',
-    ];
+    $filters = parent::translateFilters();
 
     $filters['context'] = [
       'title' => $this->t("Context"),
-      'options' => $this->getContextOptions(),
+      'options' => locale_translation_context_get_context_options(),
       'default' => '',
       'description' => $this->t('Leave blank to include all contexts. The search is case sensitive.'),
     ];
