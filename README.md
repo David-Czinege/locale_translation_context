@@ -7,6 +7,10 @@ translation interface page.
 
 Allows to filter the translated strings by context.
 
+**Configuration > Regional and Language > User interface translation > Export**
+
+Allow to export strings for a specific context.
+
 ## Use case
 
 Using contexts when writing custom code is a good practice. It allows to clearly
